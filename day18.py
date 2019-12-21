@@ -22,7 +22,7 @@ def single_where(arr, value):
     return ( all_matches[0][0], all_matches[1][0] )
 
 
-## ----  Recursion to find all valid pathways -----
+## ---------  Recursion to find all valid pathways ----------
 def get_accessible_entities_helper(tunnel_map, pos: AddTuple, length):
     if tunnel_map[pos] == '#':
         return []
@@ -79,118 +79,6 @@ def make_dist_mtx(this_map, ignore_elements = ['.', '#']):
     assert((dist_mtx == dist_mtx.T).all())
     return (dist_mtx, all_elements)
 
-
-## Need to provide simple constructor to allow distance matrix to make copies of itself
-class MapDistMtx:
-    def __init__(self, dist_mtx, index_names):
-        self.dist_mtx = dist_mtx.copy()
-        self.index_names = index_names.copy()
-
-    def collect(self, key):
-        dist_mtx = self.dist_mtx.copy()
-        ## Remove the door if the key matches a door
-        if key.islower() and (key.upper() in self.index_names):
-            i_door = np.where(self.index_names == key.upper())[0][0]
-            j_door = [j for j, d in enumerate(dist_mtx[i_door]) if d > 0]
-
-            ## Connect pathways through the door
-            i = i_door
-            for j in j_door:
-                for k in j_door:
-                    if j == k:
-                        continue
-                    through_path = dist_mtx[j, i] + dist_mtx[i, k]
-                    if dist_mtx[j, k] == 0:
-                        min_dist = through_path
-                    else:
-                        min_dist     = min(through_path, dist_mtx[j, k])
-                    dist_mtx[j, k], dist_mtx[k, j] = min_dist, min_dist
-
-            dist_mtx[i_door, :] = 0
-            dist_mtx[:, i_door] = 0
-        
-        i_key  = np.where(self.index_names == key.lower())[0][0]
-        j_key  = [j for j, d in enumerate(dist_mtx[i_key]) if d > 0]
-        i = i_key
-        for j in j_key:
-            for k in j_key:
-                if j == k:
-                    continue
-                through_path = dist_mtx[j, i] + dist_mtx[i, k]
-                if dist_mtx[j, k] == 0:
-                    min_dist = through_path
-                else:
-                    min_dist     = min(through_path, dist_mtx[j, k])
-                dist_mtx[j, k], dist_mtx[k, j] = min_dist, min_dist
-
-        available_paths = {  
-                target:dist
-                for dist, target in zip(dist_mtx[i_key, :], self.index_names) 
-                if target.islower() and dist > 0
-        }
-        dist_mtx[i_key, :] = 0
-        dist_mtx[:, i_key] = 0
-
-        return MapDistMtx(dist_mtx, self.index_names), available_paths
-
-    def keys_remaining(self):
-        return [
-                n 
-                for d_row, n in zip(self.dist_mtx, self.index_names) 
-                if any(d_row != 0) and n.islower()
-        ]
-        
-    def __str__(self):
-        return("\n".join([
-            "".join([self.index_names[i-1] if i >= 1 and i <= len(self.index_names) else " ", " "] + 
-                [
-                str(d).rjust(3) for d in row
-                ] +
-                [" ", self.index_names[i-1] if i >= 1 and i <= len(self.index_names) else " "])    
-            for i, row in enumerate([self.index_names] + list(self.dist_mtx) + [self.index_names])
-            ]))
-
-
-
-
-
-
-
-## ---------  Use distance matrix to quickly search paths -----------
-def state_from_path(path):
-    return "".join(sorted(path[:-1])) + path[-1]
-
-def find_best_path(dist_mtx, starting_value):
-    current_states     = {starting_value:0}
-    states_distmtx = {starting_value:dist_mtx}
-
-    while True:
-        new_states = {}
-        new_states_distmtx = {}
-        for state, state_dist in current_states.items():
-            state_distmtx = states_distmtx[state]
-            ## Each state has a different key queued to collect
-            next_key = state[-1]
-            reduced_dist_mtx, following_keys = state_distmtx.collect(next_key)
-
-            ## States will only update if "following_keys" is non-empty
-            ## Therefore, terminate when no following keys are found
-            for following_key, following_dist in following_keys.items():
-                new_state = state_from_path(state + following_key)
-                new_dist  = state_dist + following_dist
-                if not new_state in new_states:
-                    new_states[new_state] = new_dist
-                    new_states_distmtx[new_state] = reduced_dist_mtx
-                else:
-                    new_states[new_state] = min(new_dist, new_states[new_state])
-
-        if not new_states:
-            return(current_states)
-        current_states = new_states.copy()
-        states_distmtx = new_states_distmtx.copy()
-
-
-
 def remove_connection_inplace(dist_mtx, i, index_names = None):
     j_conn = [j for j, d in enumerate(dist_mtx[i]) if d > 0]
     for j in j_conn:
@@ -207,6 +95,7 @@ def remove_connection_inplace(dist_mtx, i, index_names = None):
     dist_mtx[i, :] = 0
     dist_mtx[:, i] = 0
 
+## Need to provide simple constructor to allow distance matrix to make copies of itself
 class MapDistMtx:
     def __init__(self, dist_mtx, index_names):
         self.dist_mtx = dist_mtx.copy()
@@ -261,7 +150,7 @@ class MapDistMtx:
             for i, row in enumerate([self.index_names] + list(self.dist_mtx) + [self.index_names])
             ]))
 
-
+# ---------- Spec out the state class -----------
 @dataclass(frozen = True)
 class RobotState:
     pos : str
@@ -276,6 +165,7 @@ def update_state(state, i_pos, value):
     return RobotState(new_pos, new_keys)
 
 
+## ---------  Use distance matrix to quickly search paths -----------
 def find_best_path_multi(input_dist_mtx, starting_pos):
     starting_state = RobotState(starting_pos, "")
     current_pathlen  = {starting_state:0}
@@ -297,9 +187,6 @@ def find_best_path_multi(input_dist_mtx, starting_pos):
                 else:
                     new_pathlen[move] = d_so_far + d
                     new_distmtx[move] = reduced_dist_mtx
-            
-        print("NEXT ROUND")
-        print(new_pathlen)
         if not new_pathlen:
             return(current_pathlen)
         current_pathlen  = new_pathlen.copy()
@@ -311,8 +198,8 @@ with open('day18.in') as f:
     s_map = f.read()
 tunnel_map = np.array([[ch for ch in l.strip()] for l in s_map.strip().split('\n')])
 dist_mtx = MapDistMtx(*make_dist_mtx(tunnel_map))
+print(min(find_best_path_multi(dist_mtx, "@").values()))
 
-print(min(find_best_path_multi(dist_mtx, "@")))
 
 # PART 2
 tunnel_map = np.array([[ch for ch in l.strip()] for l in s_map.strip().split('\n')])
@@ -326,14 +213,10 @@ for dx in [-1, +1]:
         tunnel_map[center_pos[0]+dx, center_pos[1]+dy] = str(i)
         i += 1
 dist_mtx = MapDistMtx(*make_dist_mtx(tunnel_map))
-print(dist_mtx)
-print(dist_mtx.index_names)
-
-
-print("\n".join([" ".join([s for s in row]) for row in tunnel_map])  )
 print(min(find_best_path_multi(dist_mtx, "1234").values()))
 
-
+## Show the map
+# print("\n".join([" ".join([s for s in row]) for row in tunnel_map])  )
 
 
 
