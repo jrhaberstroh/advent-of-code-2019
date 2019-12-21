@@ -190,37 +190,6 @@ def find_best_path(dist_mtx, starting_value):
         states_distmtx = new_states_distmtx.copy()
 
 
-# PART 1
-with open('day18.in') as f:
-    s_map = f.read()
-tunnel_map = np.array([[ch for ch in l.strip()] for l in s_map.strip().split('\n')])
-dist_mtx = MapDistMtx(*make_dist_mtx(tunnel_map))
-all_paths = find_best_path(dist_mtx, "@")
-print(min(all_paths.values()))
-
-# PART 2
-## s_map = """
-## #############
-## #g#f.D#..h#l#
-## #F###e#E###.#
-## #dCba...BcIJ#
-## ######@######
-## #nK.L...G...#
-## #M###N#H###.#
-## #o#m..#i#jk.#
-## #############
-## """
-tunnel_map = np.array([[ch for ch in l.strip()] for l in s_map.strip().split('\n')])
-center_pos = single_where(tunnel_map, '@')
-tunnel_map[center_pos[0]-1:center_pos[0]+2,
-           center_pos[1]-1:center_pos[1]+2] = '#'
-
-i = 1
-for dx in [-1, +1]:
-    for dy in [-1, +1]:
-        tunnel_map[center_pos[0]+dx, center_pos[1]+dy] = str(i)
-        i += 1
-
 
 def remove_connection_inplace(dist_mtx, i, index_names = None):
     j_conn = [j for j, d in enumerate(dist_mtx[i]) if d > 0]
@@ -307,7 +276,7 @@ def update_state(state, i_pos, value):
     return RobotState(new_pos, new_keys)
 
 
-def find_best_path_multi(input_dist_mtx, starting_pos = '1234'):
+def find_best_path_multi(input_dist_mtx, starting_pos):
     starting_state = RobotState(starting_pos, "")
     current_pathlen  = {starting_state:0}
     current_distmtx  = {starting_state:input_dist_mtx}
@@ -337,17 +306,32 @@ def find_best_path_multi(input_dist_mtx, starting_pos = '1234'):
         current_distmtx = new_distmtx.copy()
 
 
+# PART 1
+with open('day18.in') as f:
+    s_map = f.read()
+tunnel_map = np.array([[ch for ch in l.strip()] for l in s_map.strip().split('\n')])
+dist_mtx = MapDistMtx(*make_dist_mtx(tunnel_map))
 
+print(min(find_best_path_multi(dist_mtx, "@")))
 
+# PART 2
+tunnel_map = np.array([[ch for ch in l.strip()] for l in s_map.strip().split('\n')])
+center_pos = single_where(tunnel_map, '@')
+tunnel_map[center_pos[0]-1:center_pos[0]+2,
+           center_pos[1]-1:center_pos[1]+2] = '#'
+
+i = 1
+for dx in [-1, +1]:
+    for dy in [-1, +1]:
+        tunnel_map[center_pos[0]+dx, center_pos[1]+dy] = str(i)
+        i += 1
 dist_mtx = MapDistMtx(*make_dist_mtx(tunnel_map))
 print(dist_mtx)
 print(dist_mtx.index_names)
 
 
-
-
 print("\n".join([" ".join([s for s in row]) for row in tunnel_map])  )
-print(min(find_best_path_multi(dist_mtx).values()))
+print(min(find_best_path_multi(dist_mtx, "1234").values()))
 
 
 
